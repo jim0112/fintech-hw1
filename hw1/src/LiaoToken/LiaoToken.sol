@@ -16,6 +16,7 @@ interface IERC20 {
 contract LiaoToken is IERC20 {
     // TODO: you might need to declare several state variable here
     mapping(address account => uint256) private _balances;
+    mapping (address => mapping (address => uint256)) private _allowances;
     mapping(address account => bool) isClaim;
 
     uint256 private _totalSupply;
@@ -58,19 +59,51 @@ contract LiaoToken is IERC20 {
         return true;
     }
 
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        require(sender != address(0), "sender is NULL");
+        require(recipient != address(0), "recipient is NULL");
+
+        uint256 senderBalance = _balances[sender];
+        require(senderBalance >= amount, "No enough money");
+        _balances[sender] = senderBalance - amount;
+        _balances[recipient] += amount;
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "owner is NULL");
+        require(spender != address(0), "spender is NULL");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
     function transfer(address to, uint256 amount) external returns (bool) {
         // TODO: please add your implementaiton here
+        _transfer(msg.sender, to, amount);
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
         // TODO: please add your implementaiton here
+        _transfer(from, to, value);
+        // would be 0 if not approved
+        uint256 currentAllowance = _allowances[from][msg.sender];
+        require(currentAllowance >= value, "Transfer amount exceeds allowance");
+        _approve(from, msg.sender, currentAllowance - value);
+
+        return true;
     }
 
     function approve(address spender, uint256 amount) external returns (bool) {
         // TODO: please add your implementaiton here
+        _approve(msg.sender, spender, amount);
+        return true;
     }
 
     function allowance(address owner, address spender) public view returns (uint256) {
         // TODO: please add your implementaiton here
+        return _allowances[owner][spender];
     }
 }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 interface IERC721 {
     function balanceOf(address owner) external view returns (uint256 balance);
     function ownerOf(uint256 tokenId) external view returns (address owner);
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
+    // function safeTransferFrom1(address from, address to, uint256 tokenId) external;
     function safeTransferFrom(address from, address to, uint256 tokenId) external;
     function transferFrom(address from, address to, uint256 tokenId) external;
     function approve(address to, uint256 tokenId) external;
@@ -74,31 +74,82 @@ contract NFinTech is IERC721 {
         return owner;
     }
 
+    function _setApprovalForAll(address owner, address operator, bool approved) internal virtual {
+        if (owner == address(0)) revert ZeroAddress();
+        if (operator == address(0)) revert ZeroAddress();
+        _operatorApproval[owner][operator] = approved;
+
+        emit ApprovalForAll(owner, operator, approved);
+    }
+
+    function _approve(address to, uint256 tokenId, address auth) internal virtual {
+        address owner = ownerOf(tokenId);
+        require(owner == auth || _operatorApproval[owner][auth], "Not the owner of the token");
+
+        emit Approval(owner, to, tokenId);
+        _tokenApproval[tokenId] = to;
+    }
+
+    function _getApproved(uint256 tokenId) internal view virtual returns (address) {
+        return _tokenApproval[tokenId];
+    }
+
+    function _update(address to, uint256 tokenId) internal virtual returns (address) {
+        address from = ownerOf(tokenId);
+
+        // Execute the update
+        if (from != address(0)) {
+            // Clear approval. No need to re-authorize or emit the Approval event
+            _tokenApproval[tokenId] = to;
+            _balances[from] -= 1;
+        }
+        if (to != address(0)) {
+            _balances[to] += 1;
+        }
+
+        _owner[tokenId] = to;
+        emit Transfer(from, to, tokenId);
+        return from;
+    }
+
     function setApprovalForAll(address operator, bool approved) external {
         // TODO: please add your implementaiton here
+        _setApprovalForAll(msg.sender, operator, approved);
     }
 
     function isApprovedForAll(address owner, address operator) public view returns (bool) {
         // TODO: please add your implementaiton here
+        return _operatorApproval[owner][operator];
     }
 
     function approve(address to, uint256 tokenId) external {
         // TODO: please add your implementaiton here
+        _approve(to, tokenId, msg.sender);
     }
 
     function getApproved(uint256 tokenId) public view returns (address operator) {
         // TODO: please add your implementaiton here
+        ownerOf(tokenId);
+        return _getApproved(tokenId);
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public {
         // TODO: please add your implementaiton here
+        if (from == address(0)) revert ZeroAddress();
+        if (to == address(0)) revert ZeroAddress();
+        address previousOwner = _update(to, tokenId);
+        require(previousOwner == from, "Not the correct owner");
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) public {
-        // TODO: please add your implementaiton here
-    }
+    // function safeTransferFrom1(address from, address to, uint256 tokenId) public {
+    //     // TODO: please add your implementaiton here
+    //     transferFrom(from, to, tokenId);
+    //     require(IERC721TokenReceiver(address(to)).onERC721Received(from, to, tokenId, "") == IERC721TokenReceiver.onERC721Received.selector, "Wrong selector");
+    // }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public {
         // TODO: please add your implementaiton here
+        transferFrom(from, to, tokenId);
+        require(IERC721TokenReceiver(address(to)).onERC721Received(from, to, tokenId, "") == IERC721TokenReceiver.onERC721Received.selector, "Wrong selector");
     }
 }
